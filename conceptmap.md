@@ -1,19 +1,19 @@
-## **AIONVEST — AI-Powered Stock Analysis Platform**
+## **AIONVEST — Future-Value Investing AI Platform**
 
 ### Concept Map
 
 #### **1. Project Vision**
 
-Aionvest is an AI-driven stock analysis platform that automates market research, identifies undervalued companies, and predicts potential acquisition targets based on financial data, sentiment analysis, and behavioral patterns.
+Aionvest adalah platform analisis saham berbasis AI yang menekankan future-value investing: membeli bisnis berkualitas pada harga yang menarik, di mana nilai intrinsik masa depan (berdasarkan proyeksi arus kas dan fundamental) jauh melebihi harga saat ini. Fokus pada instrumen resmi ilmu keuangan: DCF/FCFF, Dividend/Gordon Growth, WACC via CAPM, Margin of Safety (MoS), expected CAGR, dan horizon investasi.
 
 ---
 
 #### **2. Core Objectives**
 
-* Replace manual stock analysis with AI-based automation.
-* Integrate both **market data** and **news sentiment**.
-* Identify **undervalued stocks** with high **acquisition probability**.
-* Generate actionable buy/sell recommendations.
+* Mengotomasi valuasi intrinsik berbasis proyeksi dan discount rate.
+* Menggabungkan data pasar, fundamental, dan sentimen berita sebagai katalis/risk modifiers.
+* Memprioritaskan saham dengan MoS tinggi dan expected CAGR menarik pada horizon yang sesuai.
+* Rekomendasi BUY/HOLD/SELL dengan confidence, risiko, dan penjelasan ringkas.
 
 ---
 
@@ -24,48 +24,61 @@ Aionvest is an AI-driven stock analysis platform that automates market research,
 * **Sources:**
 
   * Stock Market APIs: IDX, Yahoo Finance, Alpha Vantage, IEX Cloud.
+  * Fundamentals/Statements: balance sheet, income, cashflow APIs.
   * News APIs: Google News, Bloomberg, CNBC, IDX News Feed.
   * Corporate data: IPO, M&A, Rights Issue, Insider Reports.
 * **Processing:**
 
-  * ETL for cleaning and normalizing datasets.
-  * Periodic updates via CRON or background jobs.
-  * Stored in PostgreSQL or MongoDB.
+  * ETL untuk pembersihan/normalisasi + mapping simbol.
+  * Pembangunan proyeksi: growth, margin, capex, working capital, terminal growth.
+  * Input suku bunga/risiko: risk-free, market premium, beta, cost of debt, struktur modal.
+  * Periodik via CRON/queues.
+  * Disimpan ke MariaDB/MySQL atau PostgreSQL (pilih salah satu untuk konsistensi proyek).
 
 ---
 
 ##### **B. AI & Analytics Layer**
 
-1. **Fundamental Analysis Engine**
+1. **Fundamental Valuation Engine (Future Value)**
 
-   * Calculates intrinsic value, P/E, PBV, EPS growth, ROE.
-   * Detects undervalued / overvalued stocks.
-   * Predicts potential growth using regression / LSTM models.
+   * DCF/FCFF dan/atau Dividend (Gordon Growth) untuk nilai intrinsik.
+   * Hitung WACC via CAPM (risk-free, beta, market premium) + biaya utang.
+   * Sensitivitas terhadap growth/discount rate; margin/risiko operasional.
 
-2. **News Sentiment Engine**
+2. **Risk & MoS Engine**
 
-   * NLP model (BERT-based) for sentiment scoring of company-related news.
-   * Detects acquisition, merger, or insider activity patterns.
-   * Outputs daily sentiment index per stock.
+   * Menurunkan Margin of Safety dari perbandingan harga vs fair value.
+   * Menghasilkan risk factors dan confidence score.
 
-3. **Market Pattern Engine**
+3. **News Sentiment Engine**
 
-   * Technical signal recognition (RSI, MACD, Volume, Candle Patterns).
-   * Detects hidden accumulation or abnormal behavior.
+   * NLP (BERT-based) untuk skor sentimen dan katalis.
+   * Deteksi pola akuisisi/merger/insider.
+   * Menjadi modifier untuk rekomendasi dan confidence.
 
-4. **Acquisition Potential Engine**
+4. **Market Pattern Engine**
 
-   * Combines results from the three engines above.
-   * Computes an “Acquisition Probability Score”.
-   * Produces structured output for the dashboard.
+   * Sinyal teknikal (RSI, MACD, Volume, Candles) sebagai konteks timing/horizon.
+
+5. **Acquisition Potential Engine**
+
+   * Kombinasi faktor valuasi, sentimen, dan pola pasar.
+   * Menghasilkan “Acquisition Probability Score”.
+   * Output terstruktur untuk dashboard.
 
    ```json
    {
      "symbol": "PANI",
-     "acquisition_score": 0.87,
-     "valuation_status": "undervalued",
+     "fair_value": 1250,
+     "current_price": 820,
+     "margin_of_safety": 0.34,
+     "expected_cagr": 0.20,
+     "horizon_months": 24,
+     "acquisition_score": 0.72,
      "sentiment": "bullish",
-     "recommendation": "BUY"
+     "recommendation": "BUY",
+     "confidence": 0.7,
+     "risk_factors": ["raw material cost", "regulatory"]
    }
    ```
 
@@ -75,27 +88,28 @@ Aionvest is an AI-driven stock analysis platform that automates market research,
 
 * **Frontend:** Next.js + TailwindCSS
 
-  * Interactive dashboard & charts (via TradingView API).
-  * Visualization of AI insights and valuation trends.
-  * Stock screener and portfolio simulation.
+  * Dashboard: ranking berdasar MoS dan expected CAGR, confidence, risk badges.
+  * Detail: candlestick + fair value band, breakdown DCF (cashflows, WACC, sensitivitas), grafik CAGR/horizon.
+  * Screener dan simulasi portofolio berbasis target return/horizon.
 
 * **Backend:** NestJS
 
-  * REST/GraphQL APIs for frontend consumption.
-  * Handles authentication, caching, and AI model integration.
-  * Connects to Python microservice for AI computations (via FastAPI).
+  * REST/GraphQL APIs.
+  * Auth, caching, integrasi AI (Gemini) dan optional microservice Python (FastAPI) untuk NLP/model internal.
+  * Endpoints tambahan: `/api/valuation/:symbol` untuk breakdown DCF/WACC.
 
-* **Database:** PostgreSQL + Redis Cache
+* **Database:** MariaDB/MySQL atau PostgreSQL (pilih satu) + optional Redis Cache
 
 ---
 
 ##### **D. Deployment & Infrastructure**
 
-* **Environment:** Ubuntu VPS / Dockerized setup
-* **CI/CD:** GitHub Actions
+* **Local Dev:** Makefile workflows (tanpa Docker) untuk init/install/dev.
+* **Environment:** VPS Ubuntu (Node.js + PM2/Nginx) tanpa Docker.
+* **CI/CD:** GitHub Actions (build/test, rsync/SSH deploy).
 * **Domain:** `aionvest.vransenden.site`
-* **Security:** HTTPS via Certbot / Let’s Encrypt
-* **Background Jobs:** BullMQ / Celery
+* **Security:** HTTPS via Nginx + Certbot (Let’s Encrypt)
+* **Background Jobs:** BullMQ / cron jobs
 
 ---
 
@@ -112,22 +126,21 @@ Aionvest is an AI-driven stock analysis platform that automates market research,
 
 | #  | Task                                                | Description                                                                      | Label       |
 | -- | --------------------------------------------------- | -------------------------------------------------------------------------------- | ----------- |
-| 1  | **Initialize Project Structure**                    | Create `frontend` (Next.js) and `backend` (NestJS) directories with basic setup. | setup       |
-| 2  | **Setup Docker & Env Config**                       | Add Dockerfiles for both apps + docker-compose.yml.                              | devops      |
-| 3  | **Design Database Schema**                          | Plan tables for stocks, news, analysis_results, and user watchlists.             | backend     |
-| 4  | **Implement Stock Data Fetcher**                    | Build a NestJS module to pull data from Yahoo Finance or IDX API.                | backend     |
-| 5  | **Implement News Fetcher + Sentiment Preprocessor** | Basic news crawler and sentiment parser (stub).                                  | backend     |
-| 6  | **Integrate AI Microservice (Python)**              | Create FastAPI service that handles ML model inference.                          | ai          |
-| 7  | **AI Model: Fundamental Analysis**                  | Implement basic fair value predictor using regression/LSTM.                      | ai          |
-| 8  | **AI Model: News Sentiment**                        | Train BERT-based model for sentiment scoring.                                    | ai          |
-| 9  | **AI Model: Acquisition Probability Engine**        | Combine data from models to compute acquisition likelihood.                      | ai          |
-| 10 | **Backend API Integration**                         | Connect NestJS endpoints to AI microservice.                                     | backend     |
-| 11 | **Frontend Layout Setup**                           | Initialize Tailwind theme and layout (Next.js app).                              | frontend    |
-| 12 | **Dashboard UI**                                    | Build main dashboard with charts, scores, and recommendations.                   | frontend    |
-| 13 | **Portfolio Simulator**                             | Implement mock portfolio tracking based on AI recommendations.                   | frontend    |
-| 14 | **User Authentication**                             | JWT-based auth (register/login).                                                 | backend     |
-| 15 | **Deploy MVP**                                      | Deploy full stack to VPS (Docker Compose).                                       | devops      |
-| 16 | **Add Telegram Bot**                                | Integrate simple notifier for new buy/sell signals.                              | integration |
-| 17 | **Documentation & README Update**                   | Add setup guide, architecture diagram, and usage docs.                           | docs        |
+| 1  | **Initialize Project Structure (No Docker)**         | Buat `frontend` (Next.js) dan `backend` (NestJS) + Makefile workflows.            | setup       |
+| 2  | **Env Config**                                       | Tambah `.env.example` untuk frontend/backend (API base, DB URL, GEMINI key).     | devops      |
+| 3  | **Design Database Schema**                           | Tabel `stocks`, `news`, `analysis_results`, `watchlists`.                        | backend     |
+| 4  | **Stock Data Fetcher**                               | NestJS module untuk data harga (Yahoo/IDX).                                      | backend     |
+| 5  | **News Fetcher + Sentiment Stub**                    | Crawler/news API + parser sentimen dasar.                                        | backend     |
+| 6  | **ValuationService (FV)**                            | Proyeksi, WACC/CAPM inputs, DCF/FCFF pipeline, sensitivitas.                     | ai          |
+| 7  | **Gemini Integration (Reasoner)**                    | Prompt FV (MoS, expected CAGR, horizon, risks, confidence) + parsing JSON aman.  | ai          |
+| 8  | **Backend API Integration**                          | Endpoint `/api/valuation/:symbol` + `/api/stocks/top` (MoS/CAGR).                | backend     |
+| 9  | **Frontend Layout Setup**                            | Tailwind + layout dasar.                                                         | frontend    |
+| 10 | **Dashboard (MoS/CAGR Ranking)**                     | Tabel/komponen ranking + filters/horizon.                                        | frontend    |
+| 11 | **Stock Detail (Valuation Breakdown)**               | Candlestick + fair value band + DCF breakdown + risk/assumptions.                | frontend    |
+| 12 | **Portfolio Simulator**                              | Simulasi berbasis target CAGR & horizon.                                         | frontend    |
+| 13 | **User Authentication**                              | JWT-based auth (register/login).                                                 | backend     |
+| 14 | **Deploy MVP (No Docker)**                           | VPS setup (Node, PM2, Nginx, Certbot) + GitHub Actions untuk deploy.             | devops      |
+| 15 | **Add Telegram Bot**                                 | Notifier sinyal baru (BUY/HOLD/SELL).                                            | integration |
+| 16 | **Documentation & README Update**                    | Panduan setup lokal (Makefile), arsitektur FV, diagram, usage.                   | docs        |
 
 ---

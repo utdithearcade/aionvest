@@ -4,8 +4,9 @@
 Next.js (Frontend) • NestJS (Backend) • Gemini API (AI Engine) • MariaDB/MySQL (Database)
 
 **Objective:**
-Aionvest is an AI-driven stock intelligence system that helps investors make better decisions by automatically analyzing market data, financial indicators, and news sentiment.
-The platform’s goal is to automate human-level reasoning — identifying undervalued stocks, detecting potential acquisition targets, and providing buy/sell recommendations — with explainable insights and data-driven metrics.
+Aionvest is an AI-driven stock intelligence system focused on future-value investing. It helps investors make decisions by estimating a company’s intrinsic value based on its future cash flows and fundamentals, not just current price.
+The platform prioritizes buying quality businesses at attractive prices where expected future value (over months/years) significantly exceeds today’s cost, applying official methods from finance:
+Discounted Cash Flow (DCF/FCFF), Dividend/Gordon Growth Model, WACC via CAPM, ROIC/ROE quality screens, Margin of Safety, and expected CAGR over a chosen horizon.
 
 ---
 
@@ -13,7 +14,7 @@ The platform’s goal is to automate human-level reasoning — identifying under
 
 Aionvest is composed of three primary layers: **data processing**, **AI reasoning**, and **visual intelligence**.
 
-* The **backend (NestJS)** gathers market and news data, formats it, and communicates with the **Gemini API**, which performs the analytical reasoning.
+* The **backend (NestJS)** gathers market, fundamentals, and news data; computes financial projections and discount rates; and communicates with the **Gemini API**, which performs analytical reasoning and synthesis.
 * The results are stored in **MariaDB/MySQL**, then exposed to the **Next.js frontend** for visualization and investor interaction.
 
 **Simplified Data Flow:**
@@ -51,10 +52,12 @@ Aionvest is composed of three primary layers: **data processing**, **AI reasonin
 * The backend compiles structured input for each stock and sends it to the Gemini API.
 * The AI model analyzes:
 
-  * Price behavior
-  * Fundamental data
-  * News sentiment
-    and returns both qualitative and quantitative insights.
+  * Fundamental quality and projected free cash flows
+  * Discount rate (WACC via CAPM: risk-free rate, beta, market premium)
+  * Dividend growth or residual growth where applicable
+  * Price behavior and timing context
+  * News/sentiment as catalysts or risk modifiers
+  and returns quantitative valuation metrics (fair value, margin of safety, expected CAGR, horizon) plus explanatory insights.
 
 **Example Input:**
 
@@ -63,6 +66,21 @@ Aionvest is composed of three primary layers: **data processing**, **AI reasonin
   "symbol": "BBCA",
   "prices": [...],
   "fundamentals": {...},
+  "projections": {
+    "revenue_growth": [0.10, 0.09, 0.08, 0.07, 0.06],
+    "ebit_margin": 0.18,
+    "tax_rate": 0.22,
+    "capex_to_revenue": 0.05,
+    "wc_to_revenue": 0.02,
+    "terminal_growth": 0.03
+  },
+  "rates": {
+    "risk_free": 0.06,
+    "market_premium": 0.05,
+    "beta": 0.9,
+    "cost_of_debt": 0.08,
+    "debt_ratio": 0.2
+  },
   "news": [...]
 }
 ```
@@ -71,11 +89,18 @@ Aionvest is composed of three primary layers: **data processing**, **AI reasonin
 
 ```json
 {
+  "fair_value": 3850,
+  "current_price": 2800,
+  "margin_of_safety": 0.27,
+  "expected_cagr": 0.18,
+  "horizon_months": 24,
   "valuation_gap": 0.35,
   "sentiment_score": 0.4,
   "acquisition_probability": 0.7,
   "recommendation": "BUY",
-  "explanation": "The stock appears undervalued with positive sentiment and growing acquisition potential."
+  "confidence": 0.72,
+  "risk_factors": ["cyclical demand", "FX exposure"],
+  "explanation": "DCF suggests intrinsic value above current price with sufficient margin of safety; fundamentals and sentiment supportive over a 24-month horizon."
 }
 ```
 
@@ -102,8 +127,11 @@ Aionvest is composed of three primary layers: **data processing**, **AI reasonin
 
 The system provides Gemini with:
 
-* Latest 30-day stock prices
-* Core financial ratios (PE, PBV, ROE, EPS, debt-to-equity)
+* Latest 30–90 day stock prices
+* Core financial ratios (PE, PBV, ROE, ROIC, EPS, debt-to-equity)
+* Financial statements and derived FCFF/FCFE components
+* Projections: revenue growth, margins, reinvestment, working capital, capex
+* Rates: risk-free, market premium, beta, cost of debt, capital structure (for WACC)
 * Recent top news headlines and snippets
 * Company and sector information
 
@@ -111,19 +139,27 @@ The system provides Gemini with:
 
 The Gemini model performs several analytical functions:
 
-1. Evaluate the company’s intrinsic valuation compared to its market price.
-2. Assess news sentiment and determine its market relevance.
-3. Detect acquisition or accumulation signals from data patterns.
-4. Synthesize all insights into a structured JSON response containing numeric metrics and explanatory text.
+1. Compute intrinsic value using DCF/FCFF and/or Dividend/Gordon Growth where relevant.
+2. Derive WACC via CAPM inputs; perform sensitivity across growth/discount rates.
+3. Estimate margin of safety, expected CAGR, and suitable investment horizon.
+4. Assess news/sentiment as risk/catalyst modifiers; detect accumulation/acquisition cues.
+5. Synthesize into structured JSON with numeric metrics, risks, confidence, and rationale.
 
 ### 3.3 Expected Output Fields
 
 | Field                     | Type            | Description                                                  |
 | ------------------------- | --------------- | ------------------------------------------------------------ |
-| `valuation_gap`           | Float (-1 to 1) | Difference between market price and AI-estimated fair value. |
+| `fair_value`              | Float           | Estimated intrinsic value from DCF/Dividend models.          |
+| `current_price`           | Float           | Current market price for comparison.                         |
+| `margin_of_safety`        | Float (0–1)     | Safety buffer between fair value and price.                  |
+| `expected_cagr`           | Float (0–1)     | Expected annualized return over the horizon.                 |
+| `horizon_months`          | Integer         | Investment horizon used for projections.                     |
+| `valuation_gap`           | Float (-1 to 1) | Relative deviation price vs fair value.                      |
 | `sentiment_score`         | Float (-1 to 1) | Average sentiment derived from recent news.                  |
 | `acquisition_probability` | Float (0 to 1)  | Likelihood that the stock may become an acquisition target.  |
 | `recommendation`          | Enum            | BUY, HOLD, or SELL recommendation.                           |
+| `confidence`              | Float (0–1)     | Model confidence in the recommendation.                      |
+| `risk_factors`            | Array<String>   | Key risks and assumptions.                                   |
 | `explanation`             | String          | Brief text summary explaining the AI’s reasoning.            |
 
 ---
@@ -156,11 +192,12 @@ The Gemini model performs several analytical functions:
 
 ## 6. Data Pipeline Description
 
-1. **FetchDataJob:** Collects market and news data from APIs.
-2. **FormatDataService:** Normalizes and prepares structured data for Gemini.
-3. **GeminiService:** Sends prompt requests, parses AI responses.
-4. **AnalysisRepository:** Saves processed analysis results in MariaDB.
-5. **Frontend API Requests:** Retrieves and displays AI insights dynamically.
+1. **FetchDataJob:** Collects market, fundamentals, and news data from APIs.
+2. **ValuationService:** Builds projections (growth, margins), computes WACC/CAPM, prepares FCFF inputs.
+3. **FormatDataService:** Normalizes and prepares structured data for Gemini.
+4. **GeminiService:** Sends prompt requests, parses AI responses with robust JSON schema checks.
+5. **AnalysisRepository:** Saves processed analysis results in the database.
+6. **Frontend API Requests:** Retrieves and displays AI insights dynamically.
 
 ---
 
@@ -193,10 +230,17 @@ The Gemini model performs several analytical functions:
 | id                      | INT      | Primary key               |
 | symbol                  | VARCHAR  | Stock symbol              |
 | date                    | DATETIME | Date of analysis          |
+| fair_value              | FLOAT    | Intrinsic value estimate  |
+| current_price           | FLOAT    | Market price at analysis  |
+| margin_of_safety        | FLOAT    | Safety margin (0–1)       |
+| expected_cagr           | FLOAT    | Expected annual return    |
+| horizon_months          | INT      | Horizon in months         |
 | valuation_gap           | FLOAT    | Valuation deviation       |
 | sentiment_score         | FLOAT    | Sentiment value           |
 | acquisition_probability | FLOAT    | Acquisition likelihood    |
 | recommendation          | VARCHAR  | BUY, HOLD, or SELL        |
+| confidence              | FLOAT    | Confidence (0–1)          |
+| risk_factors            | TEXT     | Risks/assumptions         |
 | explanation             | TEXT     | AI explanation            |
 | created_at              | DATETIME | Record creation timestamp |
 
@@ -206,14 +250,15 @@ The Gemini model performs several analytical functions:
 
 ### Dashboard
 
-* Displays a ranked list of stocks by AI confidence and acquisition probability.
+* Displays a ranked list of stocks by Margin of Safety and expected CAGR.
+* Shows confidence, risks, and acquisition probability as modifiers.
 * Offers a summary of market trends and aggregate sentiment.
 
 ### Stock Detail Page
 
-* Interactive candlestick chart with AI-calculated fair value overlay.
-* Historical sentiment and acquisition probability charts.
-* Text-based AI explanation section.
+* Interactive candlestick chart with fair value band and Margin of Safety overlay.
+* Historical sentiment, acquisition probability, expected CAGR over time.
+* Text-based AI explanation, risks, and assumptions.
 
 ### Watchlist
 
@@ -226,21 +271,31 @@ The Gemini model performs several analytical functions:
 
 ```typescript
 const prompt = `
-You are a professional financial analyst.
-Analyze the following stock data and return a JSON-formatted response.
+You are a professional equity analyst using future-value investing principles.
+Estimate intrinsic value via DCF/FCFF and/or Dividend (Gordon Growth) where relevant,
+derive WACC (via CAPM inputs), compute Margin of Safety, expected CAGR, and a reasonable investment horizon.
 
 Stock Symbol: ${symbol}
 Price History: ${JSON.stringify(priceData)}
+Financial Ratios & Statements: ${JSON.stringify(financialData)}
+Projections: ${JSON.stringify(projections)}
+Rates (risk_free, market_premium, beta, cost_of_debt, debt_ratio): ${JSON.stringify(rates)}
 News Headlines: ${JSON.stringify(newsData)}
-Financial Ratios: ${JSON.stringify(financialData)}
 
 Respond strictly in JSON format:
 {
-  "valuation_gap": float (-1 to 1),
-  "sentiment_score": float (-1 to 1),
-  "acquisition_probability": float (0 to 1),
+  "fair_value": number,
+  "current_price": number,
+  "margin_of_safety": number, // 0..1
+  "expected_cagr": number, // 0..1 annualized
+  "horizon_months": number,
+  "valuation_gap": number, // -1..1
+  "sentiment_score": number, // -1..1
+  "acquisition_probability": number, // 0..1
   "recommendation": "BUY" | "HOLD" | "SELL",
-  "explanation": "short text summary"
+  "confidence": number, // 0..1
+  "risk_factors": string[],
+  "explanation": string
 }
 `;
 ```
@@ -249,13 +304,14 @@ Respond strictly in JSON format:
 
 ## 10. API Endpoints (NestJS)
 
-| Method | Endpoint                | Description                         |
-| ------ | ----------------------- | ----------------------------------- |
-| GET    | `/api/stocks`           | Retrieves list of tracked stocks    |
-| GET    | `/api/stocks/:symbol`   | Retrieves data for a specific stock |
-| GET    | `/api/analysis/:symbol` | Retrieves AI analysis result        |
-| POST   | `/api/analyze/:symbol`  | Executes new AI analysis via Gemini |
-| GET    | `/api/stocks/top`       | Lists top stocks by AI ranking      |
+| Method | Endpoint                  | Description                                  |
+| ------ | ------------------------- | -------------------------------------------- |
+| GET    | `/api/stocks`             | Retrieves list of tracked stocks             |
+| GET    | `/api/stocks/:symbol`     | Retrieves data for a specific stock          |
+| GET    | `/api/analysis/:symbol`   | Retrieves AI analysis result                 |
+| POST   | `/api/analyze/:symbol`    | Executes new AI analysis via Gemini          |
+| GET    | `/api/stocks/top`         | Lists top stocks by MoS/expected CAGR        |
+| GET    | `/api/valuation/:symbol`  | Returns valuation components (DCF breakdown) |
 
 ---
 
